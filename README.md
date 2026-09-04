@@ -12,7 +12,7 @@
    ```
    dotnet workload install qsharp
    ```
-3. Créer le projet et  dedans :
+3. Créer le projet :
    ```
    dotnet new console -lang Q# -o demo-quantique
    ```
