@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sphère de Bloch interactive</title>
+
+<!-- Three.js sert uniquement à dessiner la sphère en 3D (rotation de la
+     caméra, flèche représentant l'état du qubit). Toute la physique
+     quantique, elle, est calculée "à la main" plus bas dans ce fichier. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  /* =========================================================
+     JETONS DE DESIGN (design tokens)
+     Toutes les couleurs et espacements de la page sont définis
+     ici, une seule fois, puis réutilisés partout ailleurs.
+     ========================================================= */
+  :root {
+    --bg: #0a0e16;
+    --bg-glow: radial-gradient(circle at 20% -10%, #132036 0%, #0a0e16 55%);
+    --panel: #121a2b;
+    --panel-border: #24304a;
+    --text: #e3e8f5;
+    --text-dim: #8a93b3;
+    --accent: #ffb454; /* ambre : accent principal, actions */
+    --accent-soft: rgba(255, 180, 84, 0.14);
+    --axis-x: #ff6b81; /* rouge corail : axe X */
+    --axis-y: #7ee787; /* vert doux : axe Y */
+    --axis-z: #4fd6c8; /* cyan : axe Z (vertical, |0>/|1>) */
+    --radius: 10px;
+    --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "Courier New", monospace;
+  }
+
+  /* Réinitialisation légère, standard sur les projets modernes */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-glow);
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+  }
+
+  /* Focus clavier bien visible, même sur fond sombre */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  header {
+    padding: 2rem 1.5rem 1rem;
+    max-width: 900px;
+  }
+
+  header h1 {
+    margin: 0 0 0.4rem;
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--text-dim);
+    max-width: 60ch;
+  }
+
+  main {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: 0 1.5rem 2rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- Panneau de contrôle ---------- */
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1.5rem;
+  }
+
+  .controls h2 {
+    font-size: 0.95rem;
+    margin: 0 0 1rem;
+  }
+
+  .field {
+    margin-bottom: 1rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+
+  select,
+  input[type="range"] {
+    width: 100%;
+    background: #0d1422;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+  }
+
+  input[type="range"] {
+    padding: 0;
+    accent-color: var(--accent);
+  }
+
+  button {
+    width: 100%;
+    border: 1px solid var(--panel-border);
+    background: #0d1422;
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 0.6rem;
+    transition: transform 0.08s ease, border-color 0.15s ease;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #1a1204;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--panel-border);
+    margin: 1rem 0;
+  }
+
+  .hint {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 0.5rem;
+  }
+
+  /* ---------- Grille des sphères ---------- */
+  .spheres-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1.25rem;
+    min-width: 260px;
+  }
+
+  .qubit-card {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .qubit-tag {
+    position: absolute;
+    top: 0.7rem;
+    left: 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+  }
+
+  .qubit-card canvas {
+    border-radius: 8px;
+  }
+
+  .state-info {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin: 0.6rem 0 0.4rem;
+    text-align: center;
+  }
+
+  .history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-height: 84px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--panel-border);
+    padding-top: 0.4rem;
+  }
+
+  .history li {
+    padding: 0.1rem 0;
+  }
+
+  .history li:last-child {
+    color: var(--text);
+  }
+
+  /* Respecte les personnes qui préfèrent moins d'animations */
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .controls {
+      width: 100%;
+      position: static;
+    }
+  }
+
+  footer {
+    padding: 0 1.5rem 2rem;
+    max-width: 900px;
+  }
+
+  footer a {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-decoration: none;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  footer a:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Sphère de Bloch interactive</h1>
+    <p>
+      Chaque sphère représente l'état d'un qubit. Choisis une instruction
+      Q# et regarde son effet en direct sur le vecteur d'état.
+    </p>
+  </header>
+
+  <main>
+    <!-- ================= PANNEAU DE CONTRÔLE ================= -->
+    <section class="controls" aria-label="Panneau de contrôle">
+      <h2>Configuration</h2>
+
+      <div class="field">
+        <label for="qubitCount">Nombre de qubits</label>
+        <select id="qubitCount">
+          <option value="1">1 qubit</option>
+          <option value="2" selected>2 qubits</option>
+          <option value="3">3 qubits</option>
+          <option value="4">4 qubits</option>
+          <option value="5">5 qubits</option>
+          <option value="6">6 qubits</option>
+        </select>
+      </div>
+
+      <button id="generateButton" class="primary">Générer les qubits</button>
+
+      <hr />
+
+      <div class="field">
+        <label for="targetQubit">Qubit cible</label>
+        <select id="targetQubit"></select>
+      </div>
+
+      <div class="field">
+        <label for="instructionSelect">Instruction Q#</label>
+        <select id="instructionSelect">
+          <option value="H">H — Hadamard</option>
+          <option value="X">X — Pauli-X</option>
+          <option value="Y">Y — Pauli-Y</option>
+          <option value="Z">Z — Pauli-Z</option>
+          <option value="S">S — Phase π/2</option>
+          <option value="T">T — Phase π/4</option>
+          <option value="Rx">Rx(θ) — Rotation autour de X</option>
+          <option value="Ry">Ry(θ) — Rotation autour de Y</option>
+          <option value="Rz">Rz(θ) — Rotation autour de Z</option>
+          <option value="M">M — Mesurer</option>
+          <option value="Reset">Reset</option>
+        </select>
+      </div>
+
+      <div class="field" id="angleField" hidden>
+        <label for="angleInput">Angle θ = <span id="angleValue">90</span>°</label>
+        <input type="range" id="angleInput" min="-180" max="180" value="90" step="1" />
+      </div>
+
+      <button id="applyButton" class="primary">Appliquer l'instruction</button>
+      <button id="resetAllButton">Réinitialiser tous les qubits</button>
+
+      <p class="hint">
+        Chaque qubit est indépendant : il n'y a pas d'intrication entre les
+        sphères ici, seulement l'effet d'une instruction sur un qubit isolé.
+      </p>
+    </section>
+
+    <!-- ================= GRILLE DES SPHÈRES ================= -->
+    <section class="spheres-grid" id="spheresGrid" aria-label="Sphères de Bloch"></section>
+  </main>
+
+  <footer>
+    <a href="https://claude.ai/code/artifact/d87d68e1-4bbc-4b22-87e9-2247f01d2f1c" target="_blank" rel="noopener">
+      Voir cette page en ligne
+    </a>
+  </footer>
+
+  <script>
+    "use strict";
+
+    // Certaines personnes demandent, au niveau de leur système
+    // d'exploitation, à limiter les animations. On respecte ce choix.
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    /* =========================================================
+       1. NOMBRES COMPLEXES
+       Un état de qubit se décrit avec deux nombres complexes.
+       Ici, un nombre complexe est simplement un objet { re, im }.
+       ========================================================= */
+
+    function complex(re, im = 0) {
+      return { re, im };
+    }
+
+    function cAdd(a, b) {
+      return complex(a.re + b.re, a.im + b.im);
+    }
+
+    function cMul(a, b) {
+      return complex(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+    }
+
+    function cConj(a) {
+      return complex(a.re, -a.im);
+    }
+
+    // Le carré du module d'un nombre complexe : |a|² = re² + im²
+    // (ce carré correspond directement à une probabilité en physique quantique)
+    function cAbs2(a) {
+      return a.re * a.re + a.im * a.im;
+    }
+
+    /* =========================================================
+       2. LES PORTES QUANTIQUES
+       Chaque porte est une matrice 2x2 de nombres complexes.
+       On la représente comme un tableau de 2 lignes, chaque ligne
+       contenant 2 nombres complexes.
+       ========================================================= */
+
+    const SQRT1_2 = 1 / Math.sqrt(2);
+
+    const GATES = {
+      H: () => [
+        [complex(SQRT1_2), complex(SQRT1_2)],
+        [complex(SQRT1_2), complex(-SQRT1_2)],
+      ],
+      X: () => [
+        [complex(0), complex(1)],
+        [complex(1), complex(0)],
+      ],
+      Y: () => [
+        [complex(0), complex(0, -1)],
+        [complex(0, 1), complex(0)],
+      ],
+      Z: () => [
+        [complex(1), complex(0)],
+        [complex(0), complex(-1)],
+      ],
+      S: () => [
+        [complex(1), complex(0)],
+        [complex(0), complex(0, 1)],
+      ],
+      T: () => [
+        [complex(1), complex(0)],
+        [complex(0), complex(Math.cos(Math.PI / 4), Math.sin(Math.PI / 4))],
+      ],
+      // Rotation d'angle theta (en radians) autour de l'axe X
+      Rx: (theta) => {
+        const c = Math.cos(theta / 2);
+        const s = Math.sin(theta / 2);
+        return [
+          [complex(c), complex(0, -s)],
+          [complex(0, -s), complex(c)],
+        ];
+      },
+      // Rotation d'angle theta (en radians) autour de l'axe Y
+      Ry: (theta) => {
+        const c = Math.cos(theta / 2);
+        const s = Math.sin(theta / 2);
+        return [
+          [complex(c), complex(-s)],
+          [complex(s), complex(c)],
+        ];
+      },
+      // Rotation d'angle theta (en radians) autour de l'axe Z
+      Rz: (theta) => [
+        [complex(Math.cos(-theta / 2), Math.sin(-theta / 2)), complex(0)],
+        [complex(0), complex(Math.cos(theta / 2), Math.sin(theta / 2))],
+      ],
+    };
+
+    /* =========================================================
+       3. LA CLASSE Qubit
+       Représente l'état quantique d'UN qubit : deux amplitudes
+       complexes alpha (poids de |0>) et beta (poids de |1>).
+       ========================================================= */
+
+    class Qubit {
+      constructor() {
+        this.reset();
+      }
+
+      // Remet le qubit dans l'état |0>, comme l'instruction Reset en Q#
+      reset() {
+        this.alpha = complex(1, 0); // 100% de poids sur |0>
+        this.beta = complex(0, 0); // 0% de poids sur |1>
+      }
+
+      // Applique une matrice de porte 2x2 à l'état courant.
+      // C'est un simple produit matrice x vecteur, en nombres complexes.
+      applyMatrix(matrix) {
+        const newAlpha = cAdd(
+          cMul(matrix[0][0], this.alpha),
+          cMul(matrix[0][1], this.beta)
+        );
+        const newBeta = cAdd(
+          cMul(matrix[1][0], this.alpha),
+          cMul(matrix[1][1], this.beta)
+        );
+        this.alpha = newAlpha;
+        this.beta = newBeta;
+      }
+
+      // Simule une mesure (M en Q#). Le résultat est aléatoire, avec une
+      // probabilité |alpha|² d'obtenir Zero et |beta|² d'obtenir One.
+      // Après la mesure, l'état "s'effondre" sur le résultat obtenu.
+      measure() {
+        const probaZero = cAbs2(this.alpha);
+        const result = Math.random() < probaZero ? "Zero" : "One";
+
+        if (result === "Zero") {
+          this.alpha = complex(1, 0);
+          this.beta = complex(0, 0);
+        } else {
+          this.alpha = complex(0, 0);
+          this.beta = complex(1, 0);
+        }
+
+        return result;
+      }
+
+      // Calcule les coordonnées (x, y, z) du point représentant l'état
+      // sur la sphère de Bloch, à partir des amplitudes alpha et beta.
+      getBlochVector() {
+        // conj(alpha) * beta est un nombre complexe ; sa partie réelle et
+        // sa partie imaginaire donnent respectivement x et y.
+        const alphaConjBeta = cMul(cConj(this.alpha), this.beta);
+        const x = 2 * alphaConjBeta.re;
+        const y = 2 * alphaConjBeta.im;
+        const z = cAbs2(this.alpha) - cAbs2(this.beta);
+        return { x, y, z };
+      }
+    }
+
+    /* =========================================================
+       4. LA CLASSE BlochSphereView
+       S'occupe uniquement de l'AFFICHAGE 3D d'un qubit : elle ne
+       connaît rien à la physique quantique, elle sait juste dessiner
+       une sphère, ses axes, et une flèche à une position donnée.
+       ========================================================= */
+
+    class BlochSphereView {
+      constructor(container) {
+        this.size = 220;
+        this.cameraAngle = 0;
+        this.currentVector = { x: 0, y: 0, z: 1 };
+
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+        this.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+        });
+        this.renderer.setSize(this.size, this.size);
+        container.appendChild(this.renderer.domElement);
+
+        this.buildStaticScene();
+        this.buildArrow();
+
+        // On garde la fonction "animate" liée à cette instance précise,
+        // pour pouvoir se ré-appeler elle-même via requestAnimationFrame.
+        this.renderLoop = this.renderLoop.bind(this);
+        requestAnimationFrame(this.renderLoop);
+      }
+
+      // Convertit un vecteur "physique" (x = axe X, y = axe Y, z = axe Z
+      // vertical) en vecteur "à l'écran" pour Three.js, où l'axe vertical
+      // par défaut est Y. On échange donc y et z pour que |0> pointe
+      // bien vers le haut de l'écran, comme sur un schéma de sphère de
+      // Bloch classique.
+      toScreenVector(v) {
+        return new THREE.Vector3(v.x, v.z, v.y);
+      }
+
+      buildStaticScene() {
+        // La sphère elle-même, en fil de fer semi-transparent
+        const sphereGeometry = new THREE.SphereGeometry(1, 24, 16);
+        const sphereMaterial = new THREE.MeshBasicMaterial({
+          color: 0x334066,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.35,
+        });
+        this.scene.add(new THREE.Mesh(sphereGeometry, sphereMaterial));
+
+        // Les trois axes, chacun avec sa propre couleur
+        this.addAxisLine(
+          new THREE.Vector3(-1.3, 0, 0),
+          new THREE.Vector3(1.3, 0, 0),
+          0xff6b81
+        );
+        this.addAxisLine(
+          new THREE.Vector3(0, -1.3, 0),
+          new THREE.Vector3(0, 1.3, 0),
+          0x4fd6c8
+        );
+        this.addAxisLine(
+          new THREE.Vector3(0, 0, -1.3),
+          new THREE.Vector3(0, 0, 1.3),
+          0x7ee787
+        );
+
+        // Petites étiquettes de texte aux extrémités des axes
+        this.addLabel("X", "#ff6b81", new THREE.Vector3(1.55, 0, 0));
+        this.addLabel("Y", "#7ee787", new THREE.Vector3(0, 0, 1.55));
+        this.addLabel("|0⟩", "#4fd6c8", new THREE.Vector3(0, 1.55, 0));
+        this.addLabel("|1⟩", "#4fd6c8", new THREE.Vector3(0, -1.55, 0));
+
+        this.camera.position.set(0, 1.3, 3.2);
+        this.camera.lookAt(0, 0, 0);
+      }
+
+      addAxisLine(from, to, colorHex) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+        const material = new THREE.LineBasicMaterial({ color: colorHex });
+        this.scene.add(new THREE.Line(geometry, material));
+      }
+
+      // Crée une petite étiquette de texte en dessinant sur un <canvas>
+      // caché, puis en l'utilisant comme texture d'un sprite 3D.
+      addLabel(text, cssColor, position) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 128;
+        canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        ctx.font = "bold 40px sans-serif";
+        ctx.fillStyle = cssColor;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(0.5, 0.25, 1);
+        sprite.position.copy(position);
+        this.scene.add(sprite);
+      }
+
+      buildArrow() {
+        const direction = this.toScreenVector(this.currentVector).normalize();
+        const origin = new THREE.Vector3(0, 0, 0);
+        this.arrow = new THREE.ArrowHelper(
+          direction,
+          origin,
+          1,
+          0xffb454,
+          0.18,
+          0.09
+        );
+        this.scene.add(this.arrow);
+      }
+
+      // Déplace instantanément la flèche vers un nouveau vecteur d'état,
+      // sans animation (utilisé uniquement à la création de la sphère).
+      setVectorImmediate(vector) {
+        this.currentVector = vector;
+        const direction = this.toScreenVector(vector).normalize();
+        this.arrow.setDirection(direction);
+      }
+
+      // Anime la flèche depuis sa position actuelle vers un nouveau
+      // vecteur d'état, pour que l'effet d'une instruction Q# se VOIE.
+      animateToVector(newVector) {
+        const startVector = this.currentVector;
+        const duration = prefersReducedMotion ? 0 : 500; // en millisecondes
+        const startTime = performance.now();
+
+        const step = (now) => {
+          const t = Math.min((now - startTime) / duration || 1, 1);
+
+          // Interpolation linéaire simple entre l'ancien et le nouveau
+          // point (une vraie interpolation "sur la sphère" existe, mais
+          // cette version, plus simple à lire, suffit visuellement ici).
+          const interpolated = {
+            x: startVector.x + (newVector.x - startVector.x) * t,
+            y: startVector.y + (newVector.y - startVector.y) * t,
+            z: startVector.z + (newVector.z - startVector.z) * t,
+          };
+
+          const direction = this.toScreenVector(interpolated);
+          if (direction.length() > 0.001) {
+            this.arrow.setDirection(direction.clone().normalize());
+          }
+
+          if (t < 1) {
+            requestAnimationFrame(step);
+          } else {
+            this.currentVector = newVector;
+          }
+        };
+
+        requestAnimationFrame(step);
+      }
+
+      // Boucle de rendu : fait tourner doucement la caméra autour de la
+      // sphère pour un rendu plus lisible en 3D, puis dessine l'image.
+      renderLoop() {
+        if (!prefersReducedMotion) {
+          this.cameraAngle += 0.0025;
+          const radius = 3.2;
+          this.camera.position.x = radius * Math.sin(this.cameraAngle);
+          this.camera.position.z = radius * Math.cos(this.cameraAngle);
+          this.camera.lookAt(0, 0, 0);
+        }
+        this.renderer.render(this.scene, this.camera);
+        requestAnimationFrame(this.renderLoop);
+      }
+    }
+
+    /* =========================================================
+       5. LOGIQUE DE L'APPLICATION
+       Relie les éléments HTML (menus, boutons) aux objets Qubit
+       et BlochSphereView créés ci-dessus.
+       ========================================================= */
+
+    const spheresGrid = document.getElementById("spheresGrid");
+    const qubitCountSelect = document.getElementById("qubitCount");
+    const generateButton = document.getElementById("generateButton");
+    const targetQubitSelect = document.getElementById("targetQubit");
+    const instructionSelect = document.getElementById("instructionSelect");
+    const angleField = document.getElementById("angleField");
+    const angleInput = document.getElementById("angleInput");
+    const angleValue = document.getElementById("angleValue");
+    const applyButton = document.getElementById("applyButton");
+    const resetAllButton = document.getElementById("resetAllButton");
+
+    // Pour chaque qubit affiché à l'écran, on garde ensemble : son état
+    // quantique, sa vue 3D, et les éléments HTML utilisés pour ses infos.
+    let qubits = [];
+
+    function degToRad(degrees) {
+      return (degrees * Math.PI) / 180;
+    }
+
+    // (Re)construit toute la grille de qubits, avec le nombre demandé.
+    function generateQubits(count) {
+      spheresGrid.innerHTML = "";
+      targetQubitSelect.innerHTML = "";
+      qubits = [];
+
+      for (let i = 0; i < count; i++) {
+        const card = document.createElement("article");
+        card.className = "qubit-card";
+
+        const tag = document.createElement("span");
+        tag.className = "qubit-tag";
+        tag.textContent = `Q${i}`;
+        card.appendChild(tag);
+
+        const canvasContainer = document.createElement("div");
+        card.appendChild(canvasContainer);
+
+        const info = document.createElement("p");
+        info.className = "state-info";
+        card.appendChild(info);
+
+        const history = document.createElement("ul");
+        history.className = "history";
+        card.appendChild(history);
+
+        spheresGrid.appendChild(card);
+
+        const qubit = new Qubit();
+        const view = new BlochSphereView(canvasContainer);
+
+        qubits.push({ qubit, view, infoElement: info, historyElement: history });
+        updateInfo(i);
+
+        const option = document.createElement("option");
+        option.value = String(i);
+        option.textContent = `Qubit ${i}`;
+        targetQubitSelect.appendChild(option);
+      }
+    }
+
+    // Met à jour le texte affichant les coordonnées (x, y, z) d'un qubit.
+    function updateInfo(index) {
+      const { qubit, infoElement } = qubits[index];
+      const { x, y, z } = qubit.getBlochVector();
+      infoElement.textContent = `x=${x.toFixed(2)}  y=${y.toFixed(2)}  z=${z.toFixed(2)}`;
+    }
+
+    // Ajoute une ligne dans l'historique des instructions d'un qubit.
+    function addHistoryEntry(index, text) {
+      const { historyElement } = qubits[index];
+      const entry = document.createElement("li");
+      entry.textContent = text;
+      historyElement.appendChild(entry);
+      historyElement.scrollTop = historyElement.scrollHeight;
+    }
+
+    // Affiche le réglage d'angle uniquement pour les instructions qui en
+    // ont besoin (les rotations Rx, Ry, Rz).
+    function updateAngleFieldVisibility() {
+      const needsAngle = ["Rx", "Ry", "Rz"].includes(instructionSelect.value);
+      angleField.hidden = !needsAngle;
+    }
+
+    instructionSelect.addEventListener("change", updateAngleFieldVisibility);
+
+    angleInput.addEventListener("input", () => {
+      angleValue.textContent = angleInput.value;
+    });
+
+    applyButton.addEventListener("click", () => {
+      const index = Number(targetQubitSelect.value);
+      const instruction = instructionSelect.value;
+      const { qubit, view } = qubits[index];
+
+      if (instruction === "Reset") {
+        qubit.reset();
+        addHistoryEntry(index, "Reset");
+      } else if (instruction === "M") {
+        const result = qubit.measure();
+        addHistoryEntry(index, `M → ${result}`);
+      } else if (["Rx", "Ry", "Rz"].includes(instruction)) {
+        const degrees = Number(angleInput.value);
+        const matrix = GATES[instruction](degToRad(degrees));
+        qubit.applyMatrix(matrix);
+        addHistoryEntry(index, `${instruction}(${degrees}°)`);
+      } else {
+        const matrix = GATES[instruction]();
+        qubit.applyMatrix(matrix);
+        addHistoryEntry(index, instruction);
+      }
+
+      view.animateToVector(qubit.getBlochVector());
+      updateInfo(index);
+    });
+
+    resetAllButton.addEventListener("click", () => {
+      qubits.forEach(({ qubit, view, historyElement }, index) => {
+        qubit.reset();
+        view.animateToVector(qubit.getBlochVector());
+        updateInfo(index);
+        historyElement.innerHTML = "";
+      });
+    });
+
+    generateButton.addEventListener("click", () => {
+      generateQubits(Number(qubitCountSelect.value));
+    });
+
+    // Initialisation au chargement de la page
+    updateAngleFieldVisibility();
+    generateQubits(Number(qubitCountSelect.value));
+  </script>
+</body>
+</html>
