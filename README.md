@@ -1,9 +1,11 @@
 # Démo Q# — Superposition, intrication & téléportation
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/1d124264-bfba-4524-9ee7-48bc7661eaac/deploy-status)](https://app.netlify.com/projects/ornate-eclair-7ad406/deploys)
+
 ## Sphère de Bloch interactive
 
-`bloch-sphere.html` est aussi disponible en ligne, sans rien installer :
-[claude.ai/code/artifact/d87d68e1-4bbc-4b22-87e9-2247f01d2f1c](https://claude.ai/code/artifact/d87d68e1-4bbc-4b22-87e9-2247f01d2f1c)
+`bloch-sphere.html` est aussi disponible en ligne :
+[ornate-eclair-7ad406.netlify.app](https://ornate-eclair-7ad406.netlify.app/)
 
 ## Installation
 
