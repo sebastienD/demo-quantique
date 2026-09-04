@@ -75,7 +75,8 @@ défini.
 "Maximalement intriqué" veut dire précisément ceci : si on essaie d'écrire
 l'état individuel d'un seul des deux qubits (en "oubliant" l'autre), on ne
 retombe sur aucun état bien défini sur la sphère de Bloch — son vecteur
-s'effondre littéralement au centre de la sphère. Toute l'information sur
+s'effondre littéralement au centre de la sphère (voir « Le vecteur d'état
+est-il toujours sur la surface ? » plus bas). Toute l'information sur
 l'état est contenue dans la corrélation entre les deux qubits, il n'en
 reste aucune sur chaque qubit pris séparément. C'est un maximum au sens où
 il existe des états "partiellement" intriqués, où chaque qubit garde un peu
@@ -227,9 +228,11 @@ C# n'a pas :
   autour des axes X, Y et Z. `X` est l'équivalent quantique du NOT classique
   (inverse |0⟩ et |1⟩) ; `Z` laisse |0⟩ et |1⟩ inchangés mais inverse le
   signe de la partie "|1⟩" d'une superposition (effet invisible sans les
-  combiner à d'autres portes) ; `Y` combine les deux effets. Q# les mesures
-  correspondantes (mesures de Pauli) sont d'ailleurs ce que fait l'opération
-  `M` : mesurer un qubit avec `M` équivaut à `Measure([PauliZ], [qubit])`.
+  combiner à d'autres portes — voir « Pourquoi une bascule de phase Z ne
+  fait rien de visible... » plus bas) ; `Y` combine les deux effets. Q# les
+  mesures correspondantes (mesures de Pauli) sont d'ailleurs ce que fait
+  l'opération `M` : mesurer un qubit avec `M` équivaut à
+  `Measure([PauliZ], [qubit])`.
 - **`functor`** — une transformation qu'on applique à une opération pour en
   obtenir automatiquement une variante, sans réécrire le code à la main. Une
   opération déclare les functors qu'elle supporte dans sa signature (`is Adj`,
@@ -240,6 +243,31 @@ C# n'a pas :
   - **`Controlled`** — génère une version **contrôlée** de l'opération, qui
     ne s'applique que si un ou plusieurs qubits de contrôle valent |1⟩.
     `Controlled X([ctrl], target)` équivaut par exemple à un `CNOT`.
+- **Phase** — l'angle associé à un nombre complexe, généralement noté φ. Un
+  nombre complexe s'écrit r·e^(iφ) : r est son module (l'amplitude "en
+  grandeur"), φ sa phase. Deux distinctions comptent en informatique
+  quantique :
+  - *Phase globale* — un facteur e^(iφ) qui multiplie **tout** l'état (α et
+    β en même temps). Elle est physiquement invisible — aucune mesure ne
+    peut la détecter — et n'a donc aucun effet sur la sphère de Bloch.
+  - *Phase relative* — la différence de phase **entre** α et β. C'est elle
+    qui est physiquement observable (elle détermine les interférences, et
+    se lit sur la sphère comme l'angle de longitude φ autour de l'axe Z).
+    Les portes `Z`, `S`, `T` et `Rz` modifient uniquement cette phase
+    relative — c'est pour ça qu'on les appelle des "bascules/portes de
+    phase".
+- **État pur / état mixte** — un **état pur** est un état quantique
+  parfaitement défini, non mélangé avec d'autres ; il se représente par un
+  vecteur de longueur 1 sur la sphère de Bloch. Un **état mixte** est un
+  mélange statistique de plusieurs états purs (par décohérence, ou — comme
+  vu plus haut — en isolant un qubit intriqué de son partenaire) ; il se
+  représente par un point à l'intérieur de la sphère, de longueur d'autant
+  plus courte que le mélange est important.
+- **Notation de Dirac (bra-ket)** — l'écriture |0⟩, |1⟩, |+⟩, |−⟩, |+i⟩,
+  |−i⟩, |Φ⁺⟩... utilisée partout dans ce document pour désigner des états
+  quantiques ("ket"). |+⟩ et |−⟩ sont les états de superposition égale sur
+  l'axe X de la sphère de Bloch ; |+i⟩ et |−i⟩ sont leurs équivalents sur
+  l'axe Y.
 
 ### Exemple commenté — comment `Rx` elle-même est construite
 
@@ -323,18 +351,41 @@ intrication, téléportation), tu utilises `Adjoint` et potentiellement
 parce que des opérations comme `Rx` ou `PrepareState` le font pour toi, une
 fois pour toutes, dès qu'elles déclarent `is Adj + Ctl`.
 
-## Conseils pour le live
+## Notes sur la sphère de Bloch
 
-- **Répète plusieurs fois la veille**, sur la machine que tu utiliseras réellement.
-  Avec 3 démos, la répétition compte double.
-- Prépare un **screenshot ou une vidéo de secours** d'une exécution réussie de
-  chaque démo, au cas où l'environnement plante en live.
-- Si le temps presse, ordre de coupe recommandé : d'abord réduire la démo 3
-  à `for i in 1..2`, puis si besoin retirer complètement la démo 2 (Bell) —
-  la démo 1 (superposition) et la démo 3 (téléportation) portent l'essentiel
-  du message à elles deux.
-- `nbEssais = 1000` (démos 1 et 2) s'exécute quasi instantanément sur
-  simulateur — aucun risque de lenteur perceptible en live.
+### Pourquoi une bascule de phase Z ne fait rien de visible sur |0⟩ ou |1⟩
+
+Ce n'est pas un bug de l'outil, c'est attendu :
+
+- **Algébriquement** — pour un état |ψ⟩ = α|0⟩ + β|1⟩, la porte Z change le
+  signe de β (l'amplitude de |1⟩) et laisse α inchangé. Sur |0⟩, on a α = 1 et
+  β = 0 — inverser le signe de zéro ne change rien. Même chose sur |1⟩, où
+  c'est α qui vaut 0. (Voir aussi la porte `Z` dans le Vocabulaire ci-dessus.)
+- **Géométriquement** — Z correspond à une rotation de 180° autour de l'axe Z
+  de la sphère de Bloch. Une rotation autour d'un axe laisse fixes tous les
+  points situés exactement sur cet axe — et |0⟩, |1⟩ sont les deux pôles,
+  posés pile sur cet axe.
+- **À retenir pour la démo** — pour rendre l'effet de Z visible, il faut
+  d'abord sortir l'état de l'axe Z (par exemple avec une porte `H`, qui amène
+  sur l'équateur) — c'est là que la rotation de phase devient un vrai
+  mouvement visible du vecteur.
+
+### Le vecteur d'état est-il toujours sur la surface de la sphère ?
+
+Pour un **état pur** (le seul cas géré par `bloch-sphere.html`), oui : le
+vecteur de Bloch a toujours une longueur de 1 et pointe exactement sur la
+surface de la sphère unité.
+
+L'intérieur de la sphère existe aussi en théorie, mais il représente un
+**état mixte** — un mélange statistique (pas une superposition) de plusieurs
+états purs, typique d'un qubit qui a perdu de la cohérence (décohérence,
+bruit, intrication partielle avec un système non observé). Plus le vecteur
+raccourcit vers le centre, plus l'état est mélangé ; au centre exact (rayon
+nul), l'état est complètement mixte — aucune information de phase ni de
+direction ne subsiste. C'est exactement ce que vit un qubit d'une paire de
+Bell pris isolément (voir « Comprendre l'état de Bell » plus haut) : son
+vecteur individuel s'effondre au centre, alors même que la paire, prise dans
+son ensemble, décrit un état parfaitement défini.
 
 ## Références
 
