@@ -6,7 +6,7 @@
   signe de β (l'amplitude de |1⟩) et laisse α inchangé. Sur |0⟩, on a α = 1 et
   β = 0 — inverser le signe de zéro ne change rien. Même chose sur |1⟩, où
   c'est α qui vaut 0. (Voir aussi la porte `Z` dans le Vocabulaire de
-  [qsharp-langage.md](qsharp-langage.md).)
+  [qsharp-notes.md](qsharp-notes.md).)
 - **Géométriquement** — Z correspond à une rotation de 180° autour de l'axe Z
   de la sphère de Bloch. Une rotation autour d'un axe laisse fixes tous les
   points situés exactement sur cet axe — et |0⟩, |1⟩ sont les deux pôles,
