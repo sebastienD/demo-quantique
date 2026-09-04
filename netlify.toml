@@ -1,0 +1,7 @@
+[build]
+  publish = "src"
+
+[[redirects]]
+  from = "/"
+  to = "/bloch-sphere.html"
+  status = 200
