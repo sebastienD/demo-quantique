@@ -497,6 +497,69 @@
     z-index: 999;
   }
 
+  /* Table cliquable pour l'agrandir en popin (voir #teleport-table et le
+     modal .teleport-modal plus bas) : même principe que le bouton plein
+     écran des sphères, mais pour un tableau de référence à montrer à
+     l'oral pendant la démo. */
+  .clickable-table {
+    cursor: pointer;
+  }
+  .clickable-table:hover,
+  .clickable-table:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .teleport-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 18, 0.55);
+    z-index: 1001;
+  }
+
+  .teleport-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1002;
+    width: min(94vw, 640px);
+    max-height: 88vh;
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  }
+
+  .teleport-modal h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    padding-right: 28px;
+  }
+
+  .teleport-modal .gate-table {
+    font-size: 14px;
+  }
+
+  .teleport-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .teleport-modal-close:hover { color: var(--ink); border-color: var(--accent); }
+
   .qubit-card-head {
     display: flex;
     align-items: center;
@@ -792,6 +855,19 @@
         </table>
       </details>
 
+      <details class="panel">
+        <summary>Téléportation — correction de Bob</summary>
+        <table class="gate-table clickable-table" id="teleport-table" tabindex="0" role="button" aria-label="Agrandir le tableau">
+          <thead><tr><th>m1 (M(msg))</th><th>m2 (M(here))</th><th>État obtenu sur « there »</th><th>Correction</th></tr></thead>
+          <tbody>
+            <tr><td class="g-name">Zero</td><td class="g-name">Zero</td><td class="g-desc">α|0⟩ + β|1⟩ (déjà correct)</td><td class="g-name">aucune</td></tr>
+            <tr><td class="g-name">Zero</td><td class="g-name">One</td><td class="g-desc">α|1⟩ + β|0⟩ (bits échangés)</td><td class="g-name">X</td></tr>
+            <tr><td class="g-name">One</td><td class="g-name">Zero</td><td class="g-desc">α|0⟩ − β|1⟩ (signe inversé)</td><td class="g-name">Z</td></tr>
+            <tr><td class="g-name">One</td><td class="g-name">One</td><td class="g-desc">−(α|1⟩ − β|0⟩)</td><td class="g-name">X puis Z</td></tr>
+          </tbody>
+        </table>
+      </details>
+
     </aside>
 
     <!-- ============================ GRILLE DE SPHÈRES ============================ -->
@@ -806,6 +882,16 @@
        section "PLEIN ÉCRAN" du script) ; caché tant qu'aucune carte n'est
        agrandie. -->
   <div class="fullscreen-backdrop hidden" id="fullscreen-backdrop"></div>
+
+  <!-- Popin d'agrandissement du tableau de correction de téléportation
+       (voir #teleport-table dans la barre latérale, et la section
+       "POPIN TABLEAU TÉLÉPORTATION" du script) ; cachée par défaut. -->
+  <div class="teleport-modal-backdrop hidden" id="teleport-modal-backdrop"></div>
+  <div class="teleport-modal hidden" id="teleport-modal" role="dialog" aria-modal="true" aria-label="Téléportation — correction de Bob">
+    <button type="button" class="teleport-modal-close" id="teleport-modal-close" aria-label="Fermer">✕</button>
+    <h3>Téléportation — correction de Bob</h3>
+    <div id="teleport-modal-body"></div>
+  </div>
 </div>
 
 <script>
@@ -2053,6 +2139,54 @@ fullscreenBackdrop.addEventListener("click", exitFullscreenIfAny);
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") exitFullscreenIfAny();
+});
+
+/* ---------------------------------------------------------------------------
+   POPIN TABLEAU TÉLÉPORTATION
+   ---------------------------------------------------------------------------
+   Le tableau de correction de la démo téléportation (#teleport-table, dans
+   la barre latérale) est cliquable : un clic ouvre une popin centrée qui
+   affiche une copie agrandie du même tableau (clonée, pas dupliquée à la
+   main, pour ne jamais désynchroniser les deux versions), pratique pour le
+   montrer au public sans qu'il ait à plisser les yeux sur la colonne
+   latérale.
+   -------------------------------------------------------------------------*/
+
+const teleportTable = document.getElementById("teleport-table");
+const teleportModal = document.getElementById("teleport-modal");
+const teleportModalBackdrop = document.getElementById("teleport-modal-backdrop");
+const teleportModalBody = document.getElementById("teleport-modal-body");
+const teleportModalClose = document.getElementById("teleport-modal-close");
+
+function openTeleportModal() {
+  teleportModalBody.innerHTML = "";
+  teleportModalBody.appendChild(teleportTable.cloneNode(true));
+  teleportModal.classList.remove("hidden");
+  teleportModalBackdrop.classList.remove("hidden");
+}
+
+function closeTeleportModal() {
+  teleportModal.classList.add("hidden");
+  teleportModalBackdrop.classList.add("hidden");
+}
+
+if (teleportTable) {
+  teleportTable.addEventListener("click", openTeleportModal);
+  teleportTable.addEventListener("keydown", e => {
+    // Accessibilité clavier : le tableau porte tabindex="0" + role="button",
+    // donc Entrée/Espace doivent l'activer comme un clic.
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openTeleportModal();
+    }
+  });
+}
+
+teleportModalBackdrop.addEventListener("click", closeTeleportModal);
+teleportModalClose.addEventListener("click", closeTeleportModal);
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !teleportModal.classList.contains("hidden")) closeTeleportModal();
 });
 
 /* ---- Aperçu de l'instruction Q# et validation du menu ---- */

@@ -231,3 +231,139 @@ operation Rx(theta : Double, qubit : Qubit) : Unit is Adj + Ctl {
     }
 }
 ```
+
+### Exécuter cette démo sur un vrai ordinateur quantique (Azure Quantum)
+
+Jusqu'ici, `dotnet run` exécute `Program.qs` sur le **simulateur** fourni
+par le QDK — un programme classique qui calcule exactement les amplitudes
+α et β (voir le vocabulaire ci-dessus), sans aucun bruit. Faire tourner le
+même code sur du **vrai matériel quantique** passe par le service Azure
+Quantum, qui joue le rôle d'intermédiaire entre ce code Q# et les
+fournisseurs de processeurs quantiques (IonQ, Quantinuum, Rigetti,
+Pasqal...). Voici la procédure, et surtout ce qui change par rapport au
+simulateur.
+
+#### Ce qui change fondamentalement par rapport au simulateur
+
+- **Un job, pas un `dotnet run`** — on ne "lance" plus le programme
+  directement : on **soumet un job** à un fournisseur choisi, avec un
+  nombre de répétitions ("shots") fixé au moment de la soumission. Le
+  résultat n'arrive pas en direct dans le terminal ; il faut interroger le
+  service pour savoir si le job est terminé, puis récupérer les résultats.
+- **`Message()` ne s'affiche plus pendant l'exécution** — sur du matériel
+  réel, il n'y a pas de flux `stdout` en direct comme sur le simulateur.
+  Seuls les résultats de mesure (les valeurs de `Result`) sont renvoyés à
+  la fin du job.
+- **Chaque shot coûte réellement quelque chose** — contrairement au
+  simulateur (gratuit et instantané), chaque exécution sur du matériel
+  réel consomme du temps machine facturé (ou déduit d'un crédit gratuit).
+  Relancer 1000 mesures comme dans `DemoSuperposition` ou `DemoBellState`
+  a donc un coût réel, à multiplier par le nombre de shots demandés.
+- **Le bruit change tout** — un vrai qubit subit de la décohérence, des
+  erreurs de porte et des erreurs de mesure. La démo 3 (téléportation) ne
+  donnera **plus 100 % de ✅** comme sur le simulateur : un certain taux
+  d'échec (souvent quelques %, très variable selon le fournisseur et le
+  jour) devient normal et attendu — voir « État pur / état mixte »
+  ci-dessus pour l'intuition physique de ce qu'introduit ce bruit.
+- **Le contrôle classique conditionné par une mesure n'est pas garanti
+  partout** — la démo de téléportation dépend de manière essentielle des
+  deux `if` conditionnés par une mesure en plein milieu du circuit (voir
+  [teleportation.md](teleportation.md)). Cette capacité, appelée
+  **mesure et rétroaction en temps réel** ("mid-circuit measurement" +
+  "classical feedforward"), n'est pas supportée par tous les processeurs
+  quantiques ; il faut choisir une cible qui la propose explicitement
+  (au moment de l'écriture de ce document, les machines Quantinuum
+  System Model H1/H2 et certaines cibles IonQ le permettent — à vérifier
+  cible par cible, cette liste évolue vite).
+
+#### Prérequis
+
+1. Un abonnement Azure (un compte gratuit suffit pour commencer).
+2. Un **espace de travail Azure Quantum** ("workspace"), créé depuis le
+   [portail Azure](https://portal.azure.com) : *Créer une ressource →
+   Azure Quantum → Workspace*. À la création, on choisit un ou plusieurs
+   **fournisseurs** (providers) à activer — chacun propose ses propres
+   cibles matérielles et/ou simulateurs cloud, avec sa propre grille
+   tarifaire (souvent un crédit gratuit est offert aux nouveaux
+   workspaces).
+3. L'extension Azure Quantum de la CLI Azure :
+   ```
+   az extension add --name quantum
+   az login
+   ```
+4. Le SDK Python `azure-quantum` (et `qsharp` pour rester en Q#) si l'on
+   préfère soumettre les jobs depuis un script plutôt qu'en ligne de
+   commande :
+   ```
+   pip install azure-quantum qsharp
+   ```
+
+#### Étapes
+
+1. **Associer la CLI au workspace créé :**
+   ```
+   az quantum workspace set \
+     --resource-group <mon-groupe-de-ressources> \
+     --workspace <mon-workspace> \
+     --location <ma-region>
+   ```
+2. **Lister les cibles disponibles**, pour choisir un fournisseur qui
+   supporte le type de circuit de la démo choisie :
+   ```
+   az quantum target list -o table
+   ```
+   Pour les démos 1 et 2 (`DemoSuperposition`, `DemoBellState`), qui ne
+   demandent aucune correction conditionnée par une mesure en cours de
+   circuit, la plupart des cibles matérielles conviennent. Pour la démo 3
+   (téléportation), s'assurer que la cible choisie annonce le support du
+   contrôle classique en temps réel (voir plus haut).
+3. **Adapter le point d'entrée avant de soumettre.** Sur du matériel réel,
+   un job correspond à **une seule opération**, exécutée `N` fois (le
+   nombre de shots est un paramètre du job, pas une boucle `for` dans le
+   code Q#). Il faut donc soumettre séparément, par exemple,
+   `DemoBellState` ou `TeleportRandomState` — plutôt que `RunDemo()`, qui
+   enchaîne les trois démos et gère elle-même sa propre boucle de
+   1000 essais côté simulateur (inutile et coûteux à reproduire telle
+   quelle sur du matériel facturé au shot).
+4. **Soumettre le job**, en ligne de commande :
+   ```
+   az quantum job submit \
+     --target-id <id-de-la-cible> \
+     --project . \
+     --job-name teleportation-demo \
+     --shots 100
+   ```
+   ou depuis Python avec le SDK `qsharp` :
+   ```python
+   import qsharp
+   import qsharp.azure
+
+   qsharp.azure.connect(
+       resourceId="<resource-id-du-workspace>",
+       location="<ma-region>",
+   )
+   qsharp.azure.target("<id-de-la-cible>")
+   result = qsharp.azure.execute(TeleportRandomState, shots=100)
+   ```
+5. **Suivre l'avancement et récupérer le résultat** — un job réel peut
+   rester en file d'attente (statut `Waiting`) le temps qu'un créneau se
+   libère sur le processeur physique, avant de passer à `Executing` puis
+   `Succeeded` :
+   ```
+   az quantum job show --job-id <id-du-job>
+   az quantum job output --job-id <id-du-job>
+   ```
+6. **Interpréter les résultats** — contrairement au simulateur qui
+   affichait un `Message` de succès/échec par shot, le résultat renvoyé
+   est un histogramme des valeurs de `Result` obtenues sur l'ensemble des
+   shots. Pour la démo téléportation, il faut alors compter soi-même la
+   proportion de `Zero` (téléportation réussie) parmi les shots — c'est
+   cette proportion, inférieure à 100 %, qui donne une mesure concrète du
+   niveau de bruit du processeur utilisé ce jour-là.
+
+#### Pour aller plus loin
+
+- [Documentation Azure Quantum (doc Microsoft)](https://learn.microsoft.com/fr-fr/azure/quantum/) —
+  vue d'ensemble du service, création de workspace, tarification.
+- [Comprendre les cibles et fournisseurs Azure Quantum](https://learn.microsoft.com/fr-fr/azure/quantum/qc-target-list) —
+  liste et caractéristiques des processeurs quantiques disponibles.
