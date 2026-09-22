@@ -1,4 +1,4 @@
-namespace SuperpositionDemo {
+namespace Demos {
 
     open Microsoft.Quantum.Intrinsic;
     open Microsoft.Quantum.Canon;
