@@ -87,6 +87,34 @@ les deux). C'est tout l'intérêt du calcul : ces quatre cas sont
 équiprobables et parfaitement identifiables par les deux bits classiques
 qu'Alice va mesurer.
 
+**Pourquoi `CNOT` puis `H`, et pas `H` puis `CNOT` comme à l'étape 2 ?**
+Cette inversion d'ordre n'est pas un détail — elle a un sens précis, et ce
+n'est volontairement pas la même opération qu'à l'étape 2.
+
+- **À l'étape 2**, on *crée* une intrication à partir de rien : `here` part
+  de |0⟩, `H` puis `CNOT` construisent la paire de Bell. C'est la recette
+  « aller ».
+- **Ici, à l'étape 3**, `msg` porte déjà un état arbitraire et `here` est
+  déjà intriqué avec `there` — il n'y a rien à « créer ». Le but d'Alice
+  est de **mesurer `msg` et `here` dans la base de Bell** (savoir dans
+  lequel des 4 états de Bell se trouve la paire), mais `M()` ne sait
+  mesurer que dans la base calculatoire (`Zero`/`One`), jamais directement
+  dans une autre base.
+
+  L'astuce standard pour mesurer dans une base différente : appliquer
+  l'**inverse** de la transformation qui définit cette base, puis mesurer
+  normalement — exactement le même principe que `Adjoint PrepareState` à
+  l'étape 6, mais écrit ici porte par porte plutôt qu'avec le functor
+  `Adjoint`. Pour inverser une suite d'opérations, il faut (1) inverser
+  chacune d'elles et (2) inverser leur ordre. Comme `H` et `CNOT` sont
+  toutes les deux leur propre inverse (portes hermitiennes/unitaires — voir
+  le functor `Adjoint` dans [qsharp-notes.md](qsharp-notes.md)), l'inverse
+  de « `H` puis `CNOT` » (la recette de l'étape 2) est très exactement
+  « `CNOT` puis `H` » : les mêmes portes, dans l'ordre inverse. C'est
+  précisément le code ci-dessus. Résultat : mesurer `msg` et `here` en
+  base calculatoire *après* ce `CNOT`/`H` équivaut exactement à les avoir
+  mesurés en base de Bell *avant*.
+
 ### 4. Alice mesure ses deux qubits
 
 ```qsharp

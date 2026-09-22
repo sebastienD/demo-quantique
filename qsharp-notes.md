@@ -114,6 +114,19 @@ C# n'a pas :
   deux effets. Q# les mesures correspondantes (mesures de Pauli) sont
   d'ailleurs ce que fait l'opération `M` : mesurer un qubit avec `M`
   équivaut à `Measure([PauliZ], [qubit])`.
+
+  Ces portes fixes ne sont d'ailleurs pas indépendantes des rotations
+  paramétrées ci-dessus : `X` correspond exactement à `Rx(π)`, **à une
+  phase globale près**. En effet, `Rx(θ) = cos(θ/2)·I − i·sin(θ/2)·X`, donc
+  pour θ = π (cos(π/2)=0, sin(π/2)=1) : `Rx(π) = −i·X`. Le facteur `−i` est
+  un facteur de phase globale (voir « Phase » plus bas) — donc physiquement
+  invisible : `X` et `Rx(π)` ont exactement le même effet sur la sphère de
+  Bloch et donnent les mêmes probabilités de mesure. Même relation pour les
+  deux autres : `Y` = `Ry(π)` et `Z` = `Rz(π)`, toujours à une phase
+  globale près. Les portes nommées de la bibliothèque standard sont donc,
+  pour la plupart, des points particuliers (des angles remarquables) de ces
+  familles de rotations continues — `S` = `Rz(π/2)` et `T` = `Rz(π/4)` en
+  sont deux autres exemples.
 - **`functor`** — une transformation qu'on applique à une opération pour en
   obtenir automatiquement une variante, sans réécrire le code à la main. Une
   opération déclare les functors qu'elle supporte dans sa signature (`is Adj`,
@@ -137,8 +150,15 @@ C# n'a pas :
   `is Ctl` seul) si l'autre n'est pas nécessaire.
 - **Phase** — l'angle associé à un nombre complexe, généralement noté φ. Un
   nombre complexe s'écrit r·e^(iφ) : r est son module (l'amplitude "en
-  grandeur"), φ sa phase. Deux distinctions comptent en informatique
-  quantique :
+  grandeur"), φ sa phase. Une image simple : un nombre complexe est un point
+  du plan repéré non pas par ses coordonnées (partie réelle, partie
+  imaginaire) mais comme l'aiguille d'une montre — sa longueur, c'est le
+  module r ; la direction vers laquelle elle pointe, c'est la phase φ. Deux
+  nombres complexes peuvent avoir le même module (la même longueur
+  d'aiguille) mais des phases différentes (des directions différentes) :
+  par exemple 1 et i ont tous les deux un module de 1, mais des phases de
+  0° et 90° respectivement, puisque i = e^(iπ/2). Deux distinctions
+  comptent en informatique quantique :
   - *Phase globale* — un facteur e^(iφ) qui multiplie **tout** l'état (α et
     β en même temps). Elle est physiquement invisible — aucune mesure ne
     peut la détecter — et n'a donc aucun effet sur la sphère de Bloch.
