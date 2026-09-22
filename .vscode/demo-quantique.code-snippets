@@ -1,0 +1,55 @@
+{
+  "Imports standards Q#": {
+    "prefix": "qimports",
+    "scope": "qsharp",
+    "body": [
+      "open Microsoft.Quantum.Intrinsic;",
+      "open Microsoft.Quantum.Canon;"
+    ],
+    "description": "Insère les deux imports utilisés en tête de Program.qs"
+  },
+
+  "Titre de section (démo)": {
+    "prefix": "qmsg-titre",
+    "scope": "qsharp",
+    "body": [
+      "Message(\"\");",
+      "Message(\"=== ${1:Titre de la démo} ===\");"
+    ],
+    "description": "Bloc Message() de titre de section"
+  },
+
+  "Message de résultat (démo superposition)": {
+    "prefix": "qmsg-resultat-superposition",
+    "scope": "qsharp",
+    "body": [
+        "Message($\"Sur {nbEssais} mesures : {zeros} fois |0>, {ones} fois |1>\");",
+        "Message(\"Chaque mesure individuelle donne un résultat net (0 ou 1).\");",
+        "Message(\"Seule la distribution statistique révèle la superposition initiale.\");"
+    ],
+    "description": "Bloc Message() de résultat pour démo superposition"
+  },
+
+  "Message de résultat (démo intrication)": {
+    "prefix": "qmsg-resultat-intrication",
+    "scope": "qsharp",
+    "body": [
+      "Message($\"Sur {nbEssais} mesures : {memes} fois résultats identiques, {differents} fois différents\");",
+      "Message(\"Les deux qubits sont corrélés à 100%, alors que chaque résultat individuel reste aléatoire.\");"
+    ],
+    "description": "Bloc Message() de résultat pour démo BellState"
+  },
+
+  "Message succès/échec (démo teleportation)": {
+    "prefix": "qmsg-verif-teleportation",
+    "scope": "qsharp",
+    "body": [
+      "if ${1:condition} {",
+      "    Message(\"✅ ${2:Message de succès}\");",
+      "} else {",
+      "    Message(\"❌ ${3:Message d'échec}\");",
+      "}"
+    ],
+    "description": "Bloc if/else Message() succès/échec, comme dans TeleportRandomState"
+  }
+}
