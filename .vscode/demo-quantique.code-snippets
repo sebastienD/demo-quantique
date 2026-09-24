@@ -34,7 +34,7 @@
     "prefix": "qmsg-resultat-intrication",
     "scope": "qsharp",
     "body": [
-      "Message($\"Sur {nbEssais} mesures : {memes} fois résultats identiques, {differents} fois différents\");",
+      "Message($\"Sur {nbEssais} mesures : {sames} fois résultats identiques, {differents} fois différents\");",
       "Message(\"Les deux qubits sont corrélés à 100%, alors que chaque résultat individuel reste aléatoire.\");"
     ],
     "description": "Bloc Message() de résultat pour démo BellState"

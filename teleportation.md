@@ -239,6 +239,43 @@ vérifier qu'un qubit est dans un état donné sans pouvoir « lire » cet état
 directement, on applique l'inverse de l'opération qui l'a produit, puis on
 mesure — on doit retomber sur |0⟩.
 
+#### Pourquoi ne pas simplement mesurer `there` et comparer avec `here` ?
+
+Une idée naturelle serait de vérifier la téléportation « à la manière de
+la démo 2 » : mesurer `there`, et comparer son résultat à celui de
+`here` — un peu comme on compte les mesures identiques dans
+`DemoBellState`. Ça ne fonctionne pas ici, pour trois raisons qui
+s'enchaînent :
+
+1. **`here` n'est déjà plus un état quantique.** `m2 = M(here)` l'a
+   mesuré à l'étape 4 : son état s'est effondré sur `Zero` ou `One` (voir
+   la note du point 4 plus haut). Il ne reste donc rien à comparer côté
+   `here` — ce n'est plus qu'un bit classique, pas un vecteur d'état.
+2. **Même en imaginant comparer autrement, une seule mesure de `there`
+   ne donne qu'un seul bit d'information** (`Zero` ou `One`), alors que
+   l'état secret à vérifier est un point *continu* sur la sphère de Bloch
+   (deux nombres réels, θ et φ — voir [qsharp-notes.md](qsharp-notes.md)).
+   Un bit unique ne peut renseigner, au mieux, que sur la composante z du
+   vecteur de Bloch — il ne dit strictement rien sur la phase relative φ,
+   qui fait pourtant partie intégrante de l'état à vérifier.
+3. **On ne peut pas non plus répéter la mesure pour faire des
+   statistiques.** Caractériser complètement un état par la mesure (la
+   « tomographie ») demande de mesurer plusieurs copies identiques du même
+   état, dans plusieurs bases différentes. Le théorème de non-clonage
+   l'interdit : impossible de dupliquer `there` pour en avoir plusieurs
+   exemplaires à mesurer sous des angles différents. Une seule mesure
+   effondre l'information une fois pour toutes, sans deuxième chance.
+
+C'est exactement pour contourner ces trois obstacles que la démo n'essaie
+jamais de « lire » l'état de `there` directement : `Adjoint PrepareState`
+transforme la question impossible à trancher avec une seule mesure
+(« `there` est-il exactement dans l'état U|0⟩, phase comprise ? ») en une
+question binaire simple (« `there` retombe-t-il exactement sur |0⟩ ? »),
+tranchable en une seule mesure — au prix de connaître `U`, un luxe que le
+vrai Bob n'a pas dans un protocole physique réel, mais parfaitement
+légitime ici puisque c'est nous, auteurs de la démo, qui vérifions notre
+propre code.
+
 ### 7. Nettoyage
 
 ```qsharp
