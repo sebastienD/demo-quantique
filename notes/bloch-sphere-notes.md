@@ -27,7 +27,7 @@ bruit, intrication partielle avec un système non observé). Plus le vecteur
 raccourcit vers le centre, plus l'état est mélangé ; au centre exact (rayon
 nul), l'état est complètement mixte — aucune information de phase ni de
 direction ne subsiste. C'est exactement ce que vit un qubit d'une paire de
-Bell pris isolément (voir « Comprendre l'état de Bell » dans le
-[README](README.md)) : son vecteur individuel s'effondre au centre, alors
+Bell pris isolément (voir
+[intrication.md](intrication.md)) : son vecteur individuel s'effondre au centre, alors
 même que la paire, prise dans son ensemble, décrit un état parfaitement
 défini.

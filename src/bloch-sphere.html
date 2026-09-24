@@ -866,6 +866,10 @@
             <tr><td class="g-name">One</td><td class="g-name">One</td><td class="g-desc">−(α|1⟩ − β|0⟩)</td><td class="g-name">X puis Z</td></tr>
           </tbody>
         </table>
+        <div class="code-preview clickable-table" id="teleport-formula" tabindex="0" role="button" aria-label="Agrandir la formule">(1/2) [ |00⟩(msg,here) ⊗ (α|0⟩+β|1⟩)there
+      + |01⟩(msg,here) ⊗ (β|0⟩+α|1⟩)there
+      + |10⟩(msg,here) ⊗ (α|0⟩−β|1⟩)there
+      + |11⟩(msg,here) ⊗ (−β|0⟩+α|1⟩)there ]</div>
       </details>
 
     </aside>
@@ -2153,14 +2157,15 @@ document.addEventListener("keydown", e => {
    -------------------------------------------------------------------------*/
 
 const teleportTable = document.getElementById("teleport-table");
+const teleportFormula = document.getElementById("teleport-formula");
 const teleportModal = document.getElementById("teleport-modal");
 const teleportModalBackdrop = document.getElementById("teleport-modal-backdrop");
 const teleportModalBody = document.getElementById("teleport-modal-body");
 const teleportModalClose = document.getElementById("teleport-modal-close");
 
-function openTeleportModal() {
+function openTeleportModal(sourceElement) {
   teleportModalBody.innerHTML = "";
-  teleportModalBody.appendChild(teleportTable.cloneNode(true));
+  teleportModalBody.appendChild(sourceElement.cloneNode(true));
   teleportModal.classList.remove("hidden");
   teleportModalBackdrop.classList.remove("hidden");
 }
@@ -2170,17 +2175,20 @@ function closeTeleportModal() {
   teleportModalBackdrop.classList.add("hidden");
 }
 
-if (teleportTable) {
-  teleportTable.addEventListener("click", openTeleportModal);
-  teleportTable.addEventListener("keydown", e => {
-    // Accessibilité clavier : le tableau porte tabindex="0" + role="button",
+// Le tableau et la formule s'agrandissent tous les deux en popin, chacun
+// affichant une copie de lui-même (voir openTeleportModal ci-dessus).
+[teleportTable, teleportFormula].forEach(el => {
+  if (!el) return;
+  el.addEventListener("click", () => openTeleportModal(el));
+  el.addEventListener("keydown", e => {
+    // Accessibilité clavier : chaque élément porte tabindex="0" + role="button",
     // donc Entrée/Espace doivent l'activer comme un clic.
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      openTeleportModal();
+      openTeleportModal(el);
     }
   });
-}
+});
 
 teleportModalBackdrop.addEventListener("click", closeTeleportModal);
 teleportModalClose.addEventListener("click", closeTeleportModal);

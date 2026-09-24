@@ -1,7 +1,7 @@
 # Téléportation quantique — comment fonctionne la démo 3
 
 Ce document détaille le fonctionnement de `TeleportRandomState()` dans
-[src/Program.qs](src/Program.qs).
+[src/Program.qs](../src/Program.qs).
 
 ## Vue d'ensemble : qui fait quoi
 
@@ -24,7 +24,7 @@ use (msg, here, there) = (Qubit(), Qubit(), Qubit());
 
 Le principe de la téléportation quantique : Alice et Bob partagent au
 préalable une paire de qubits intriqués (un **état de Bell**, voir
-[README.md](README.md#comprendre-létat-de-bell-démo-2)). Alice combine son
+[intrication.md](intrication.md)). Alice combine son
 état secret avec sa moitié de la paire, effectue deux mesures, puis
 envoie le résultat de ces deux mesures à Bob **par un canal classique**
 (un téléphone, un e-mail... deux bits). Bob applique une correction
@@ -80,12 +80,50 @@ H(msg);
 
 Alice fait interagir son état secret (`msg`) avec sa moitié de la paire
 de Bell (`here`). Après ce `CNOT` puis ce `H`, les 3 qubits (`msg`,
-`here`, `there`) sont dans un état intriqué à trois où, selon le résultat
-des deux mesures qui suivent, la moitié de Bob (`there`) se retrouve dans
-l'état secret d'origine **à une rotation Pauli près** (identité, X, Z ou
-les deux). C'est tout l'intérêt du calcul : ces quatre cas sont
-équiprobables et parfaitement identifiables par les deux bits classiques
-qu'Alice va mesurer.
+`here`, `there`) sont dans un état intriqué à trois — et il faut être
+précis sur ce que ça veut dire, y compris sur la base dans laquelle cet
+état s'exprime naturellement.
+
+**Avant toute mesure**, les trois qubits sont intriqués : leur sort est
+lié. Le système est en équilibre entre 4 possibilités à la fois — comme
+si `msg` et `here` valaient simultanément 00, 01, 10 et 11, chaque
+possibilité étant aussi probable que les autres. Et ce n'est pas un
+hasard : chacune de ces 4 possibilités correspond très exactement à ce
+qu'on aurait obtenu en comparant directement `msg` et `here` à l'aune des
+4 états de Bell — `CNOT` et `H` ont simplement « traduit » cette
+information dans un langage que la mesure classique (0 ou 1) sait lire.
+
+Pour ceux qui veulent voir la formule exacte, l'état est :
+
+```
+(1/2) [ |00⟩(msg,here) ⊗ (α|0⟩+β|1⟩)there
+      + |01⟩(msg,here) ⊗ (β|0⟩+α|1⟩)there
+      + |10⟩(msg,here) ⊗ (α|0⟩−β|1⟩)there
+      + |11⟩(msg,here) ⊗ (−β|0⟩+α|1⟩)there ]
+```
+
+La formulation la plus juste : c'est le système entier à 3 qubits (msg,
+here et there ensemble) qui est intriqué et en superposition pure des 4
+branches.
+
+Les 4 branches coexistent réellement, ce n'est pas une information cachée
+qu'on ignorerait simplement. **Chaque branche, prise individuellement,
+correspond à l'état secret d'origine tourné par un Pauli précis**
+(identité, X, Z, ou les deux) — c'est justement ce que détaille le
+tableau du point 5. Ces 4 combinaisons calculatoires correspondent très
+exactement à l'information qu'aurait donnée une vraie mesure de Bell
+directe sur `(msg, here)` (voir l'encart ci-dessous) — c'est un raccourci
+de langage courant de les appeler informellement « les 4 cas de Bell »,
+mais l'état lui-même, une fois l'étape 3 passée, vit dans la base
+calculatoire, pas dans la base de Bell.
+
+Ce n'est donc pas qu'une rotation Pauli précise est déjà « décidée »
+quelque part pour `there`, en attente d'être découverte : c'est la mesure
+qui suit (étape 4) qui va faire s'effondrer le système sur une seule de
+ces 4 branches, et c'est seulement à ce moment-là que la relation entre
+`there` et l'état secret devient déterminée. C'est tout l'intérêt du
+calcul : ces quatre cas sont équiprobables et parfaitement identifiables
+par les deux bits classiques qu'Alice va mesurer.
 
 **Pourquoi `CNOT` puis `H`, et pas `H` puis `CNOT` comme à l'étape 2 ?**
 Cette inversion d'ordre n'est pas un détail — elle a un sens précis, et ce
@@ -101,10 +139,24 @@ n'est volontairement pas la même opération qu'à l'étape 2.
   mesurer que dans la base calculatoire (`Zero`/`One`), jamais directement
   dans une autre base.
 
+  **Attention à une confusion fréquente : ce n'est pas parce que `here` est
+  en superposition qu'il faut appliquer cette inversion.** Mesurer un qubit
+  en superposition ne pose aucun problème en soi — c'est exactement ce que
+  fait la démo 1 (`H(q); let resultat = M(q);`, sans rien inverser avant).
+  Si la superposition à elle seule obligeait à « défaire » quelque chose
+  avant de mesurer, cette démo ne fonctionnerait pas telle quelle. La
+  vraie raison est ailleurs : ce n'est pas *que* `here` soit en
+  superposition qui compte, c'est *quelle information précise* on veut
+  extraire de la mesure. Alice a besoin que le résultat lui dise
+  spécifiquement dans lequel des 4 états de Bell se trouve la paire — une
+  mesure directe en base calculatoire, sans rien faire avant, donnerait
+  bien deux bits, mais des bits qui ne renseigneraient sur rien d'utile
+  pour la correction de Bob.
+
   L'astuce standard pour mesurer dans une base différente : appliquer
   l'**inverse** de la transformation qui définit cette base, puis mesurer
   normalement — exactement le même principe que `Adjoint PrepareState` à
-  l'étape 6, mais écrit ici porte par porte plutôt qu'avec le functor
+  l'étape 6, mais écrit ici, porte par porte, plutôt qu'avec le functor
   `Adjoint`. Pour inverser une suite d'opérations, il faut (1) inverser
   chacune d'elles et (2) inverser leur ordre. Comme `H` et `CNOT` sont
   toutes les deux leur propre inverse (portes hermitiennes/unitaires — voir
@@ -114,6 +166,49 @@ n'est volontairement pas la même opération qu'à l'étape 2.
   précisément le code ci-dessus. Résultat : mesurer `msg` et `here` en
   base calculatoire *après* ce `CNOT`/`H` équivaut exactement à les avoir
   mesurés en base de Bell *avant*.
+
+  **Attention à ne pas croire que `CNOT`/`H` défait une relation de Bell
+  préexistante entre `msg` et `here` — il n'y en a pas.** Avant l'étape 3,
+  `msg` n'est **pas du tout intriqué** avec `here`/`there` : l'état global
+  est un simple produit, `msg` porte α|0⟩+β|1⟩ tout seul dans son coin,
+  totalement indépendant de la paire de Bell `(here, there)` déjà formée à
+  l'étape 2. C'est au contraire **`CNOT`/`H` qui crée cette intrication**
+  — pas qui en défait une.
+
+  Alors pourquoi parler de « base de Bell » ici ? Parce que `CNOT` puis
+  `H`, suivi d'une mesure en base calculatoire, est **la recette standard
+  pour implémenter une mesure en base de Bell** — une technique générale
+  en info quantique (*pour mesurer deux qubits dans une base donnée, on
+  applique la transformation inverse qui définit cette base, puis on
+  mesure normalement*) qui fonctionne sur **n'importe quels** deux qubits,
+  qu'ils soient déjà intriqués entre eux ou pas. `msg` et `here` ne le sont
+  pas au départ (ils sont même totalement indépendants) : c'est justement
+  `CNOT`/`H` qui, en une seule opération, **les intrique et configure
+  cette intrication** de sorte qu'une simple mesure `M()` en base
+  calculatoire donne exactement l'information qu'aurait donnée une mesure
+  de Bell directe. Autrement dit, `CNOT`/`H` fait deux choses à la fois :
+  il crée la première intrication de `msg` avec le reste du système, et il
+  la construit de façon à ce qu'elle se lise comme de l'information de
+  Bell une fois mesurée.
+
+  **Pour rendre l'équivalence avec `Adjoint` bien concrète** : si on avait
+  défini une petite opération séparée pour la recette de l'étape 2, comme
+
+  ```qsharp
+  operation FaireIntriquer(a : Qubit, b : Qubit) : Unit is Adj {
+      H(a);
+      CNOT(a, b);
+  }
+  ```
+
+  alors écrire `Adjoint FaireIntriquer(msg, here);` aurait produit
+  **exactement** le même résultat que `CNOT(msg, here); H(msg);` — c'est
+  la même chose, juste exprimée différemment. À l'étape 6, le code utilise
+  le mot-clé `Adjoint` sur une opération nommée (`PrepareState`) parce
+  qu'elle existe déjà et est déclarée `is Adj` ; ici, à l'étape 3, il n'y a
+  pas d'opération nommée équivalente pour « créer une paire de Bell », donc
+  le code écrit directement, à la main, le résultat de ce même calcul
+  d'inversion, porte par porte.
 
 ### 4. Alice mesure ses deux qubits
 
@@ -134,6 +229,53 @@ disparu du côté d'Alice — il n'existe plus que sous forme d'information
 classique (`m1`, `m2`) plus l'état encore intriqué de `there`. C'est
 cohérent avec le théorème de non-clonage : l'état n'est pas copié, il est
 détruit chez Alice au moment même où il apparaît chez Bob.
+
+#### Pourquoi les deux mesures, et pas une seule ?
+
+`m1` à lui seul ne suffit pas à savoir dans laquelle des 4 branches
+(4 états de Bell) on se trouve — il faut **les deux**, `m1` **et** `m2`.
+
+Il y a 4 branches possibles (voir le point 3), donc il faut pouvoir
+distinguer parmi **4** possibilités. Un seul bit (`m1`, valant `Zero` ou
+`One`) ne peut distinguer qu'entre **2** possibilités — il ne peut donc, à
+lui seul, qu'éliminer la moitié des cas, jamais identifier une branche
+précise. Il faut fondamentalement 2 bits pour indexer 4 cas — c'est
+exactement ce que fait le tableau du point 5, qui a bien deux colonnes
+d'entrée (`m1` et `m2`).
+
+Concrètement, si on ne mesurait que `msg` (obtenant par exemple
+`m1 = Zero`), l'état restant sur la paire (`here`, `there`) ne serait
+**pas encore** un état à une seule rotation Pauli bien définie : ce serait
+encore un état intriqué à 2 qubits entre `here` et `there` (une
+superposition des 2 branches restantes, `(Zero,Zero)` et `(Zero,One)`).
+`there` n'aurait donc pas encore d'état individuel bien défini à ce
+stade — impossible de savoir s'il faut appliquer `X` ou non. C'est
+seulement en mesurant *aussi* `here` (obtenant `m2`) que cet
+entrelacement restant s'effondre à son tour, et que `there` se retrouve
+enfin dans un état pur unique, précisément l'un des 4 du tableau.
+
+**Attention à ne pas mal interpréter ce moment intermédiaire.** À cet
+instant (`m1` connu, `here` pas encore mesuré), ce n'est **pas** « `here`
+classique, `there` encore en superposition ». `here` n'a pas encore été
+mesuré à ce stade — rien ne l'a effondré, il fait toujours pleinement
+partie du système quantique. Ce qui est vrai est plus subtil : `here` et
+`there` sont **intriqués l'un avec l'autre**, et forment ensemble une
+superposition des 2 branches restantes — mais **aucun des deux pris
+individuellement n'a d'état bien défini**. C'est exactement le même
+phénomène que celui décrit pour la paire de Bell dans
+[intrication.md](intrication.md) : un qubit intriqué, considéré isolément
+en « oubliant » son partenaire, n'a pas de vecteur de Bloch bien défini
+(état mixte), même si le système conjoint, lui, est parfaitement défini.
+Concrètement, si `m1 = Zero`, l'état conjoint restant sur (`here`,
+`there`) est (à une normalisation près) :
+
+```
+α|00⟩ + β|01⟩ + β|10⟩ + α|11⟩
+```
+
+— un état intriqué à 2 qubits, pas un produit de deux états individuels.
+C'est seulement en mesurant aussi `here` que cette intrication se résout,
+et que `there` se retrouve enfin avec un état individuel bien défini.
 
 ### 5. La correction de Bob — les deux `if`
 
@@ -188,6 +330,28 @@ fait rien de visible... » dans
 `Z` sur la sphère de Bloch) — les deux seules façons dont un qubit à un
 seul bit d'information classique par mesure peut avoir « dévié » de
 l'état visé.
+
+#### Vérification : la correction retombe bien exactement sur α|0⟩ + β|1⟩
+
+Le but de la correction est de ramener `there` très précisément dans
+l'état α|0⟩ + β|1⟩ — le même état que celui préparé sur `msg` par
+`PrepareState` à l'étape 1. On peut le vérifier ligne par ligne sur le
+tableau ci-dessus :
+
+- **(Zero, Zero)** : déjà α|0⟩ + β|1⟩ — rien à faire.
+- **(Zero, One)** : `there` vaut α|1⟩ + β|0⟩. `X` échange les coefficients
+  de |0⟩ et |1⟩ (puisque X|0⟩=|1⟩ et X|1⟩=|0⟩) → on retombe exactement sur
+  α|0⟩ + β|1⟩.
+- **(One, Zero)** : `there` vaut α|0⟩ − β|1⟩. `Z` inverse juste le signe du
+  coefficient de |1⟩ → −β devient β, on retombe sur α|0⟩ + β|1⟩.
+- **(One, One)** : `there` vaut −(α|1⟩ − β|0⟩). `X` puis `Z` ramènent aussi
+  sur α|0⟩ + β|1⟩, à un facteur global −1 près (invisible physiquement,
+  voir la remarque sur la phase globale ci-dessus).
+
+Dans les 4 cas, après correction, `there` est **exactement** l'état secret
+d'origine — c'est précisément ce que `Adjoint PrepareState(there)` vient
+vérifier à l'étape 6 : si on a bien reconstitué α|0⟩ + β|1⟩, défaire la
+préparation doit ramener sur |0⟩ à coup sûr.
 
 ### 6. Vérification : pourquoi `Adjoint PrepareState` ?
 
